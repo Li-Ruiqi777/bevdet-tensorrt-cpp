@@ -62,8 +62,8 @@ if(${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL  "aarch64")       # orin
   set(TENSORRT_INCLUDE_DIRS /usr/include/aarch64-linux-gnu/)
   set(TENSORRT_LIBRARY_DIRS /usr/lib/aarch64-linux-gnu/)
 elseif(${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "x86_64")
-  set(TENSORRT_INCLUDE_DIRS /root/TensorRT-8.5.2.2/include)  # your tensorrt path
-  set(TENSORRT_LIBRARY_DIRS /root/TensorRT-8.5.2.2/lib)
+  set(TENSORRT_INCLUDE_DIRS /usr/local/TensorRT-8.5.1.7/include)  # your tensorrt path
+  set(TENSORRT_LIBRARY_DIRS /usr/local/TensorRT-8.5.1.7/lib)
 endif()
 
 
@@ -99,9 +99,30 @@ cuda_add_executable(bevdemo
     src/grid_sampler.cu
     src/cpu_jpegdecoder.cpp
     src/nvjpegdecoder.cpp
+    common.cpp
 )
 
 target_link_libraries(bevdemo 
+    yaml-cpp 
+    libnvinfer.so
+    libjpeg.so
+)
+
+cuda_add_executable(test_inference 
+    test_inference.cpp 
+    src/bevdet.cpp 
+    src/preprocess.cu 
+    src/bevpool.cu 
+    src/iou3d_nms.cu
+    src/postprocess.cu
+    src/data.cpp
+    src/grid_sampler.cu
+    src/cpu_jpegdecoder.cpp
+    src/nvjpegdecoder.cpp
+    common.cpp
+)
+
+target_link_libraries(test_inference 
     yaml-cpp 
     libnvinfer.so
     libjpeg.so

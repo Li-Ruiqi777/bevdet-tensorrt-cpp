@@ -13,8 +13,16 @@
 using std::chrono::duration;
 using std::chrono::high_resolution_clock;
 
-
-BEVDet::BEVDet(const std::string &config_file, int n_img,               
+// BEVDet构造函数
+// 参数:
+//   config_file - 配置文件路径
+//   n_img - 图像数量
+//   _cams_intrin - 相机内参矩阵
+//   _cams2ego_rot - 相机到自车旋转
+//   _cams2ego_trans - 相机到自车平移
+//   imgstage_file - 图像阶段引擎文件路径
+//   bevstage_file - BEV阶段引擎文件路径
+BEVDet::BEVDet(const std::string &config_file, int n_img,
                         std::vector<Eigen::Matrix3f> _cams_intrin, 
                         std::vector<Eigen::Quaternion<float>> _cams2ego_rot, 
                         std::vector<Eigen::Translation3f> _cams2ego_trans,
@@ -23,30 +31,38 @@ BEVDet::BEVDet(const std::string &config_file, int n_img,
                         cams_intrin(_cams_intrin), 
                         cams2ego_rot(_cams2ego_rot), 
                         cams2ego_trans(_cams2ego_trans){
-    InitParams(config_file);
-    if(n_img != N_img){
+    InitParams(config_file);  // 初始化参数
+    if(n_img != N_img){  // 检查图像数量是否匹配
         printf("BEVDet need %d images, but given %d images!", N_img, n_img);
     }
+    // 初始化视图变换器并测量耗时
     auto start = high_resolution_clock::now();
     InitViewTransformer();
     auto end = high_resolution_clock::now();
     duration<float> t = end - start;
     printf("InitVewTransformer cost time : %.4lf ms\n", t.count() * 1000);
 
-    InitEngine(imgstage_file, bevstage_file); // FIXME
-    MallocDeviceMemory();
+    InitEngine(imgstage_file, bevstage_file);  // 初始化推理引擎
+    MallocDeviceMemory();  // 分配设备内存
 }
 
+// 初始化深度估计参数
+// 参数:
+//   curr_cams2ego_rot - 当前帧相机到自车旋转
+//   curr_cams2ego_trans - 当前帧相机到自车平移
+//   cams_intrin - 相机内参矩阵
 void BEVDet::InitDepth(const std::vector<Eigen::Quaternion<float>> &curr_cams2ego_rot,
                        const std::vector<Eigen::Translation3f> &curr_cams2ego_trans,
                        const std::vector<Eigen::Matrix3f> &cur_cams_intrin){
-    float* rot_host = new float[N_img * 3 * 3];
-    float* trans_host = new float[N_img * 3];
-    float* intrin_host = new float[N_img * 3 * 3];
-    float* post_rot_host = new float[N_img * 3 * 3];
-    float* post_trans_host = new float[N_img * 3];
-    float* bda_host = new float[3 * 3];
+    // 分配主机内存
+    float* rot_host = new float[N_img * 3 * 3];  // 旋转矩阵
+    float* trans_host = new float[N_img * 3];    // 平移向量
+    float* intrin_host = new float[N_img * 3 * 3]; // 内参矩阵
+    float* post_rot_host = new float[N_img * 3 * 3]; // 后处理旋转
+    float* post_trans_host = new float[N_img * 3];  // 后处理平移
+    float* bda_host = new float[3 * 3];           // BDA矩阵
 
+    // 填充主机内存数据
     for(int i = 0; i < N_img; i++){
         for(int j = 0; j < 3; j++){
             for(int k = 0; k < 3; k++){
@@ -59,6 +75,7 @@ void BEVDet::InitDepth(const std::vector<Eigen::Quaternion<float>> &curr_cams2eg
         }
     }
 
+    // 填充BDA矩阵
     for(int i = 0; i < 3; i++){
         for(int j = 0; j < 3; j++){
             if(i == j){
@@ -70,20 +87,21 @@ void BEVDet::InitDepth(const std::vector<Eigen::Quaternion<float>> &curr_cams2eg
         }
     }
 
-
-    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["rot"]], rot_host, 
+    // 将数据从主机内存拷贝到设备内存
+    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["rot"]], rot_host,
                                 N_img * 3 * 3 * sizeof(float), cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["trans"]], trans_host, 
+    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["trans"]], trans_host,
                                 N_img * 3 * sizeof(float), cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["intrin"]], intrin_host, 
+    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["intrin"]], intrin_host,
                                 N_img * 3 * 3 * sizeof(float), cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["post_rot"]], post_rot_host, 
+    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["post_rot"]], post_rot_host,
                                 N_img * 3 * 3 * sizeof(float), cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["post_trans"]], post_trans_host, 
+    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["post_trans"]], post_trans_host,
                                 N_img * 3 * sizeof(float), cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["bda"]], bda_host, 
+    CHECK_CUDA(cudaMemcpy(imgstage_buffer[imgbuffer_map["bda"]], bda_host,
                                 3 * 3 * sizeof(float), cudaMemcpyHostToDevice));
 
+    // 释放主机内存
     delete[] rot_host;
     delete[] trans_host;
     delete[] intrin_host;
@@ -92,42 +110,46 @@ void BEVDet::InitDepth(const std::vector<Eigen::Quaternion<float>> &curr_cams2eg
     delete[] bda_host;
 }
 
+// 从配置文件初始化参数
+// 参数:
+//   config_file - 配置文件路径
 void BEVDet::InitParams(const std::string &config_file){
     YAML::Node model_config = YAML::LoadFile(config_file);
-    N_img = model_config["data_config"]["Ncams"].as<int>();
-    src_img_h = model_config["data_config"]["src_size"][0].as<int>();
-    src_img_w = model_config["data_config"]["src_size"][1].as<int>();
-    input_img_h = model_config["data_config"]["input_size"][0].as<int>();
-    input_img_w = model_config["data_config"]["input_size"][1].as<int>();
-    crop_h = model_config["data_config"]["crop"][0].as<int>();
-    crop_w = model_config["data_config"]["crop"][1].as<int>();
-    mean.x = model_config["mean"][0].as<float>();
-    mean.y = model_config["mean"][1].as<float>();
-    mean.z = model_config["mean"][2].as<float>();
-    std.x = model_config["std"][0].as<float>();
-    std.y = model_config["std"][1].as<float>();
-    std.z = model_config["std"][2].as<float>();
-    down_sample = model_config["model"]["down_sample"].as<int>();
-    depth_start = model_config["grid_config"]["depth"][0].as<float>();
-    depth_end = model_config["grid_config"]["depth"][1].as<float>();
-    depth_step = model_config["grid_config"]["depth"][2].as<float>();
-    x_start = model_config["grid_config"]["x"][0].as<float>();
-    x_end = model_config["grid_config"]["x"][1].as<float>();
-    x_step = model_config["grid_config"]["x"][2].as<float>();
-    y_start = model_config["grid_config"]["y"][0].as<float>();
-    y_end = model_config["grid_config"]["y"][1].as<float>();
-    y_step = model_config["grid_config"]["y"][2].as<float>();
-    z_start = model_config["grid_config"]["z"][0].as<float>();
-    z_end = model_config["grid_config"]["z"][1].as<float>();
-    z_step = model_config["grid_config"]["z"][2].as<float>();
-    bevpool_channel = model_config["model"]["bevpool_channels"].as<int>();
-    nms_pre_maxnum = model_config["test_cfg"]["max_per_img"].as<int>();
-    nms_post_maxnum = model_config["test_cfg"]["post_max_size"].as<int>();
-    score_thresh = model_config["test_cfg"]["score_threshold"].as<float>();
-    nms_overlap_thresh = model_config["test_cfg"]["nms_thr"][0].as<float>();
-    use_depth = model_config["use_depth"].as<bool>();
-    use_adj = model_config["use_adj"].as<bool>();
-    if(model_config["sampling"].as<std::string>() == "bicubic"){
+    // 从配置文件读取各种参数
+    N_img = model_config["data_config"]["Ncams"].as<int>();  // 相机数量
+    src_img_h = model_config["data_config"]["src_size"][0].as<int>();  // 源图像高度
+    src_img_w = model_config["data_config"]["src_size"][1].as<int>();  // 源图像宽度
+    input_img_h = model_config["data_config"]["input_size"][0].as<int>();  // 输入图像高度
+    input_img_w = model_config["data_config"]["input_size"][1].as<int>();  // 输入图像宽度
+    crop_h = model_config["data_config"]["crop"][0].as<int>();  // 裁剪高度
+    crop_w = model_config["data_config"]["crop"][1].as<int>();  // 裁剪宽度
+    mean.x = model_config["mean"][0].as<float>();  // 图像归一化均值R
+    mean.y = model_config["mean"][1].as<float>();  // 图像归一化均值G
+    mean.z = model_config["mean"][2].as<float>();  // 图像归一化均值B
+    std.x = model_config["std"][0].as<float>();  // 图像归一化标准差R
+    std.y = model_config["std"][1].as<float>();  // 图像归一化标准差G
+    std.z = model_config["std"][2].as<float>();  // 图像归一化标准差B
+    down_sample = model_config["model"]["down_sample"].as<int>();  // 下采样率
+    depth_start = model_config["grid_config"]["depth"][0].as<float>();  // 深度起始值
+    depth_end = model_config["grid_config"]["depth"][1].as<float>();  // 深度结束值
+    depth_step = model_config["grid_config"]["depth"][2].as<float>();  // 深度步长
+    x_start = model_config["grid_config"]["x"][0].as<float>();  // X轴起始值
+    x_end = model_config["grid_config"]["x"][1].as<float>();  // X轴结束值
+    x_step = model_config["grid_config"]["x"][2].as<float>();  // X轴步长
+    y_start = model_config["grid_config"]["y"][0].as<float>();  // Y轴起始值
+    y_end = model_config["grid_config"]["y"][1].as<float>();  // Y轴结束值
+    y_step = model_config["grid_config"]["y"][2].as<float>();  // Y轴步长
+    z_start = model_config["grid_config"]["z"][0].as<float>();  // Z轴起始值
+    z_end = model_config["grid_config"]["z"][1].as<float>();  // Z轴结束值
+    z_step = model_config["grid_config"]["z"][2].as<float>();  // Z轴步长
+    bevpool_channel = model_config["model"]["bevpool_channels"].as<int>();  // BEV池化通道数
+    nms_pre_maxnum = model_config["test_cfg"]["max_per_img"].as<int>();  // NMS前最大保留数
+    nms_post_maxnum = model_config["test_cfg"]["post_max_size"].as<int>();  // NMS后最大保留数
+    score_thresh = model_config["test_cfg"]["score_threshold"].as<float>();  // 分数阈值
+    nms_overlap_thresh = model_config["test_cfg"]["nms_thr"][0].as<float>();  // NMS重叠阈值
+    use_depth = model_config["use_depth"].as<bool>();  // 是否使用深度估计
+    use_adj = model_config["use_adj"].as<bool>();  // 是否使用相邻帧
+    if(model_config["sampling"].as<std::string>() == "bicubic"){  // 采样方式
         pre_sample = Sampler::bicubic;
     }
     else{
@@ -223,6 +245,7 @@ void BEVDet::MallocDeviceMemory(){
 }
 
 
+// 提前计算好映射关系，后面直接使用该映射关系将 不同深度分布的特征点转到bev系
 void BEVDet::InitViewTransformer(){
 
     int num_points = N_img * depth_num * feat_h * feat_w;

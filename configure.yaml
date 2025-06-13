@@ -14,7 +14,7 @@ sample:
     CAM_BACK: ../sample0/imgs/CAM_BACK.jpg
     CAM_BACK_RIGHT: ../sample0/imgs/CAM_BACK_RIGHT.jpg
 
-CamConfig: ../sample0/sample0000.yaml
+CamConfig: ../sample0/sample0000.yaml # 相机内参
 InputFile: ../sample0/0.bin
 OutputLidarBox: ../sample0/sample0_lidarbox.txt
 
