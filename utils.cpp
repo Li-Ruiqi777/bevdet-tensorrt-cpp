@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "bevdet.h"
-#include "common.h"
+#include "utils.h"
 
 void Getinfo()
 {
@@ -76,4 +76,30 @@ void Egobox2Lidarbox(const std::vector<Box> &ego_boxes,
         b.z = center.z();
         lidar_boxes.push_back(b);
     }
+}
+
+int cv2rawData(cv::Mat img, std::vector<char> &raw_data)
+{
+    if (img.empty())
+    {
+        std::cerr << "image is empty. " << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::vector<u_char> raw_data_;
+    cv::imencode(".jpg", img, raw_data_);
+    raw_data = std::vector<char>(raw_data_.begin(), raw_data_.end());
+    return EXIT_SUCCESS;
+}
+
+int cv2rawData(std::vector<cv::Mat> &imgs, std::vector<std::vector<char>> &raw_datas)
+{
+    raw_datas.resize(imgs.size());
+
+    for (size_t i = 0; i < raw_datas.size(); i++)
+    {
+        if (cv2rawData(imgs[i], raw_datas[i]))
+            return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
 }

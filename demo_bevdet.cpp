@@ -6,7 +6,7 @@
 #include <thread>
 
 #include "bevdet.h"
-#include "common.h"
+#include "utils.h"
 #include "cpu_jpegdecoder.h"
 #include <yaml-cpp/yaml.h>
 
@@ -47,7 +47,7 @@ void TestNuscenes(YAML::Node &config)
     printf("Infer mean cost time : %.5lf ms\n", sum_time / cnt);
 }
 
-void TestSample(YAML::Node &config)
+void test_infer(YAML::Node &config)
 {
     size_t img_N = config["N"].as<size_t>();
     int img_w = config["W"].as<int>();
@@ -60,15 +60,15 @@ void TestSample(YAML::Node &config)
     YAML::Node sample = config["sample"];
 
     std::vector<std::string> imgs_file;
-    std::vector<std::string> imgs_name;
+    std::vector<std::string> cam_names;
     for (auto file : sample)
     {
-        imgs_file.push_back(file.second.as<std::string>());
-        imgs_name.push_back(file.first.as<std::string>());
+        imgs_file.push_back(file.second.as<std::string>()); //../sample0/imgs/CAM_FRONT_LEFT.jpg
+        cam_names.push_back(file.first.as<std::string>());  // CAM_FRONT_LEFT
     }
 
     camsData sampleData;
-    sampleData.param = camParams(camconfig, img_N, imgs_name);
+    sampleData.param = camParams(camconfig, img_N, cam_names);
 
     BEVDet bevdet(model_config, img_N, sampleData.param.cams_intrin,
                   sampleData.param.cams2ego_rot, sampleData.param.cams2ego_trans,
@@ -94,15 +94,11 @@ void TestSample(YAML::Node &config)
     bevdet.DoInfer(sampleData, ego_boxes, time); // only for inference time
 }
 
-int main(int argc, char **argv)
+int main()
 {
     Getinfo();
-    if (argc < 2)
-    {
-        printf("Need a configure yaml! Exit!\n");
-        return 0;
-    }
-    std::string config_file(argv[1]);
+
+    std::string config_file("../configure.yaml");
     YAML::Node config = YAML::LoadFile(config_file);
     printf("Successful load config : %s!\n", config_file.c_str());
     bool testNuscenes = config["TestNuscenes"].as<bool>();
@@ -110,7 +106,7 @@ int main(int argc, char **argv)
         TestNuscenes(config);
 
     else
-        TestSample(config);
+        test_infer(config);
 
     return 0;
 }

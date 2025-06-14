@@ -149,6 +149,7 @@ DataLoader::~DataLoader()
     CHECK_CUDA(cudaFree(imgs_dev));
 }
 
+// 读取图片原始二进制数据(不进行decode)
 int read_image(std::string &image_names, std::vector<char> &raw_data)
 {
 
@@ -174,14 +175,14 @@ int read_image(std::string &image_names, std::vector<char> &raw_data)
     return EXIT_SUCCESS;
 }
 
-int read_sample(std::vector<std::string> &imgs_file, std::vector<std::vector<char>> &imgs_data)
+int read_sample(std::vector<std::string> &imgs_file, std::vector<std::vector<char>> &imgs_raw_data)
 {
+    // vector 扩容
+    imgs_raw_data.resize(imgs_file.size());
 
-    imgs_data.resize(imgs_file.size());
-
-    for (size_t i = 0; i < imgs_data.size(); i++)
+    for (size_t i = 0; i < imgs_raw_data.size(); i++)
     {
-        if (read_image(imgs_file[i], imgs_data[i]))
+        if (read_image(imgs_file[i], imgs_raw_data[i]))
         {
             return EXIT_FAILURE;
         }

@@ -131,6 +131,6 @@ Eigen::Matrix3f fromYamlMatrix3f(YAML::Node x);
 int read_image(std::string &image_names, std::vector<char> &raw_data);
 // 读取样本数据
 int read_sample(std::vector<std::string> &imgs_file,
-                std::vector<std::vector<char>> &imgs_data);
+                std::vector<std::vector<char>> &imgs_raw_data);
 
 #endif

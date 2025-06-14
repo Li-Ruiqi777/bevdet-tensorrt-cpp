@@ -1,0 +1,25 @@
+TestNuscenes: false # true or false
+
+ModelConfig: ../cfgs/test_bevdet.yaml
+
+N: 1
+H: 900
+W: 1600
+cams: [CAM_FRONT]
+sample:
+    CAM_FRONT: ../sample0/imgs/CAM_FRONT.jpg
+
+CamConfig: ../sample0/sample0000.yaml # 相机内参
+InputFile: ../sample0/0.bin
+OutputLidarBox: ../sample0/sample0_lidarbox.txt
+
+ImgStageEngine: ../model/img_stage_lt_d_fp16.engine
+BEVStageEngine: ../model/bev_stage_lt_d_fp16.engine
+
+
+OutputDir: ../output/
+
+LoadDim: 5
+UseDim: 4
+
+dataset_info: ../data/nuscenes/data_infos

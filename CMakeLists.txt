@@ -16,10 +16,14 @@
 cmake_minimum_required(VERSION 3.1.0)
 project(demo)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 find_package(CUDA REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+set(OPENCV_HEAD_PATH "/usr/local/opencv4.8.0/include/opencv4")
+set(OPENCV_LIB_PATH "/usr/local/opencv4.8.0/lib")
 
 if(${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL  "aarch64")
   set(CMAKE_C_COMPILER /usr/bin/aarch64-linux-gnu-gcc)
@@ -82,10 +86,12 @@ include_directories(
   ${YAML_CPP_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/include
   ${EIGEN3_INCLUDE_DIRS}
+  ${OPENCV_HEAD_PATH}
 )
 
 link_directories(
 	${TENSORRT_LIBRARY_DIRS}
+  ${OPENCV_LIB_PATH}
 )
 
 cuda_add_executable(bevdemo 
@@ -99,13 +105,14 @@ cuda_add_executable(bevdemo
     src/grid_sampler.cu
     src/cpu_jpegdecoder.cpp
     src/nvjpegdecoder.cpp
-    common.cpp
+    utils.cpp
 )
 
 target_link_libraries(bevdemo 
     yaml-cpp 
     libnvinfer.so
     libjpeg.so
+    opencv_world.so
 )
 
 cuda_add_executable(test_inference 
@@ -119,11 +126,12 @@ cuda_add_executable(test_inference
     src/grid_sampler.cu
     src/cpu_jpegdecoder.cpp
     src/nvjpegdecoder.cpp
-    common.cpp
+    utils.cpp
 )
 
 target_link_libraries(test_inference 
     yaml-cpp 
     libnvinfer.so
     libjpeg.so
+    opencv_world.so
 )
